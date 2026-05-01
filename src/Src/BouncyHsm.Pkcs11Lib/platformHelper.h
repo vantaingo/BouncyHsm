@@ -12,6 +12,19 @@
 #define GetCurrentPid() ((uint64_t)GetCurrentProcessId())
 #define _InsertBreakpoint() DebugBreak()
 
+#elif defined(__APPLE__)
+#include <sys/types.h>
+#include <unistd.h>
+
+#define NEW_LINE_STR "\n"
+#define GetCurrentPid() ((uint64_t)getpid())
+#define _InsertBreakpoint() __builtin_trap()
+
+int strcpy_s(char* destination, size_t SizeInBytes, const char* _Source);
+int strncpy_s(char* destination, size_t destsz, const char* _Source, size_t count);
+int memcpy_s(void* restrictDest, size_t destsz, const void* restrictSrc, size_t count);
+int sprintf_s(char* buffer, size_t sizeOfBuffer, const char* format, ...);
+
 #endif
 
 #ifdef __linux__

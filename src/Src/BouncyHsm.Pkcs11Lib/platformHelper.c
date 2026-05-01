@@ -97,6 +97,193 @@ bool GetCurrentCompiuterName(char* buffer, size_t maxSize)
 
 #endif
 
+#if defined(__APPLE__)
+
+#include <sys/sysctl.h>
+#include <errno.h>
+#include <pthread.h>
+
+#warning "Apple platform support is not tested."
+
+bool GetCurrentCompiuterName(char* buffer, size_t maxSize)
+{
+    int result = gethostname(buffer, maxSize);
+    return result == 0;
+}
+
+int strcpy_s(char* destination, size_t SizeInBytes, const char* _Source)
+{
+    if (destination == NULL) return EINVAL;
+    if (SizeInBytes == 0) return ERANGE;
+    if (_Source == NULL)
+    {
+        destination[0] = 0;
+        return EINVAL;
+    }
+
+    size_t srclLen = strlen(_Source);
+    if (srclLen >= SizeInBytes)
+    {
+        destination[0] = 0;
+        return ERANGE;
+    }
+
+    strcpy(destination, _Source);
+    return 0;
+}
+
+int strncpy_s(char* destination, size_t destsz, const char* _Source, size_t count)
+{
+    if (destination == NULL) return EINVAL;
+    if (destsz == 0) return ERANGE;
+    if (_Source == NULL)
+    {
+        destination[0] = 0;
+        return EINVAL;
+    }
+
+    size_t srcSize = strlen(_Source);
+    if (srcSize > count) srcSize = count;
+    if (srcSize >= destsz)
+    {
+        destination[0] = 0;
+        return ERANGE;
+    }
+
+    memcpy(destination, _Source, srcSize);
+    destination[srcSize] = '\0';
+    return 0;
+}
+
+int memcpy_s(void* restrictDest, size_t destsz, const void* restrictSrc, size_t count)
+{
+    if (restrictDest == NULL || restrictSrc == NULL) return EINVAL;
+    if (count > destsz) return EINVAL;
+
+    memcpy(restrictDest, restrictSrc, count);
+    return 0;
+}
+
+int sprintf_s(char* buffer, size_t sizeOfBuffer, const char* format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    int result = vsnprintf(buffer, sizeOfBuffer, format, ap);
+    va_end(ap);
+    return result;
+}
+
+#include <libproc.h>
+bool getProgramArgs(const char*** args, int* argc)
+{
+    if (args == NULL || argc == NULL)
+    {
+        return false;
+    }
+
+    int mib[4];
+    mib[0] = CTL_KERN;
+    mib[1] = KERN_ARGMAX;
+    int argmax = 0;
+    size_t argmaxSize = sizeof(argmax);
+    if (sysctl(mib, 2, &argmax, &argmaxSize, NULL, 0) != 0)
+    {
+        return false;
+    }
+
+    char* procargs = (char*)malloc(argmax);
+    if (procargs == NULL)
+    {
+        return false;
+    }
+
+    int pMib[3];
+    pMib[0] = CTL_KERN;
+    pMib[1] = KERN_PROCARGS2;
+    pMib[2] = getpid();
+    size_t size = argmax;
+    if (sysctl(pMib, 3, procargs, &size, NULL, 0) != 0)
+    {
+        free(procargs);
+        return false;
+    }
+
+    int nargs;
+    memcpy(&nargs, procargs, sizeof(nargs));
+    char* cp = procargs + sizeof(nargs);
+
+    for (; cp < &procargs[size]; cp++)
+    {
+        if (*cp == '\0') break;
+    }
+    cp++;
+
+    for (; cp < &procargs[size]; cp++)
+    {
+        if (*cp != '\0') break;
+    }
+
+    const char** localArgs = (const char**)malloc(nargs * sizeof(char*));
+    if (localArgs == NULL)
+    {
+        free(procargs);
+        return false;
+    }
+
+    for (int i = 0; i < nargs; i++)
+    {
+        char* arg = strdup(cp);
+        if (arg == NULL)
+        {
+            for (int k = 0; k < i; k++)
+            {
+                free((void*)localArgs[k]);
+            }
+            free(localArgs);
+            free(procargs);
+            return false;
+        }
+        localArgs[i] = arg;
+        cp += strlen(cp) + 1;
+    }
+
+    free(procargs);
+
+    *args = localArgs;
+    *argc = nargs;
+    return true;
+}
+
+bool freeProgramArgs(const char*** args, int* argc)
+{
+    if (args == NULL || argc == NULL)
+    {
+        return false;
+    }
+
+    if (*args == NULL)
+    {
+        return true;
+    }
+
+    int count = *argc;
+    for (int i = 0; i < count; i++)
+    {
+        const char* ptr = (*args)[i];
+        if (ptr != NULL)
+        {
+            free((void*)ptr);
+        }
+    }
+
+    free((void*)*args);
+    *args = NULL;
+    *argc = 0;
+    return true;
+}
+
+#endif
+
 #ifdef _WIN32
 
 #include <Windows.h>

@@ -16,6 +16,11 @@
 #else
 #include <sys/types.h>
 #include <unistd.h>
+
+#ifdef __APPLE__
+#include <pthread.h>
+#endif
+
 #endif // __WIN32
 
 #include "platformHelper.h"
@@ -331,7 +336,12 @@ void GlobalContextInit()
     uint64_t threadId = (uint64_t)GetCurrentThreadId();
 #else
     uint64_t pid = (uint64_t)getpid();
+#ifdef __APPLE__
+    uint64_t threadId = 0;
+    pthread_threadid_np(NULL, &threadId);
+#else
     uint64_t threadId = (uint64_t)gettid();
+#endif
 #endif
 
 	unsigned long generator = (unsigned long)time(NULL);

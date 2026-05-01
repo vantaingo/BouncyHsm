@@ -11,6 +11,12 @@
 #include <stdarg.h>
 #endif
 
+#ifdef __APPLE__
+#include <stdio.h>
+#include <stdarg.h>
+#include <syslog.h>
+#endif
+
 #include "logger.h"
 #include <stdlib.h>
 #include <stdbool.h>
